@@ -21,35 +21,31 @@
 
 #include "../qemu_private.h"
 
+#define MAP_BL32_TOTAL		MAP_REGION_FLAT(			\
+					BL_CODE_BASE,			\
+					BL32_END - BL_CODE_BASE,		\
+					MT_MEMORY | MT_RW | EL3_PAS)
+#define MAP_BL32_RO		MAP_REGION_FLAT(			\
+					BL_CODE_BASE,			\
+					BL_CODE_END - BL_CODE_BASE,	\
+					MT_CODE | EL3_PAS),		\
+				MAP_REGION_FLAT(			\
+					BL_RO_DATA_BASE,		\
+					BL_RO_DATA_END			\
+						- BL_RO_DATA_BASE,	\
+					MT_RO_DATA | EL3_PAS)
+
+#define MAP_BL_COHERENT_RAM	MAP_REGION_FLAT(			\
+					BL_COHERENT_RAM_BASE,		\
+					BL_COHERENT_RAM_END		\
+						- BL_COHERENT_RAM_BASE,	\
+					MT_DEVICE | MT_RW | EL3_PAS)
+
 #if RESET_TO_SP_MIN
 #error qemu does not support RESET_TO_SP_MIN
 #endif
 
 static entry_point_info_t bl33_image_ep_info;
-
-/******************************************************************************
- * On a GICv2 system, the Group 1 secure interrupts are treated as Group 0
- * interrupts.
- *****************************************************************************/
-#define PLATFORM_G1S_PROPS(grp)						\
-	INTR_PROP_DESC(QEMU_IRQ_SEC_SGI_0, GIC_HIGHEST_SEC_PRIORITY,	\
-					   grp, GIC_INTR_CFG_LEVEL),	\
-	INTR_PROP_DESC(QEMU_IRQ_SEC_SGI_1, GIC_HIGHEST_SEC_PRIORITY,	\
-					   grp, GIC_INTR_CFG_LEVEL),	\
-	INTR_PROP_DESC(QEMU_IRQ_SEC_SGI_2, GIC_HIGHEST_SEC_PRIORITY,	\
-					   grp, GIC_INTR_CFG_LEVEL),	\
-	INTR_PROP_DESC(QEMU_IRQ_SEC_SGI_3, GIC_HIGHEST_SEC_PRIORITY,	\
-					   grp, GIC_INTR_CFG_LEVEL),	\
-	INTR_PROP_DESC(QEMU_IRQ_SEC_SGI_4, GIC_HIGHEST_SEC_PRIORITY,	\
-					   grp, GIC_INTR_CFG_LEVEL),	\
-	INTR_PROP_DESC(QEMU_IRQ_SEC_SGI_5, GIC_HIGHEST_SEC_PRIORITY,	\
-					   grp, GIC_INTR_CFG_LEVEL),	\
-	INTR_PROP_DESC(QEMU_IRQ_SEC_SGI_6, GIC_HIGHEST_SEC_PRIORITY,	\
-					   grp, GIC_INTR_CFG_LEVEL),	\
-	INTR_PROP_DESC(QEMU_IRQ_SEC_SGI_7, GIC_HIGHEST_SEC_PRIORITY,	\
-					   grp, GIC_INTR_CFG_LEVEL)
-
-#define PLATFORM_G0_PROPS(grp)
 
 static const interrupt_prop_t stih410_interrupt_props[] = {
 	PLATFORM_G1S_PROPS(GICV2_INTR_GROUP0),
@@ -121,10 +117,16 @@ void sp_min_early_platform_setup2(u_register_t arg0, u_register_t arg1,
 
 void sp_min_plat_arch_setup(void)
 {
-	qemu_configure_mmu_svc_mon(BL32_RO_BASE, BL32_END - BL32_RO_BASE,
-				  BL_CODE_BASE, BL_CODE_END,
-				  BL_COHERENT_RAM_BASE, BL_COHERENT_RAM_END);
+	const mmap_region_t bl_regions[] = {
+		MAP_BL32_TOTAL,
+		MAP_BL32_RO,
+		MAP_BL_COHERENT_RAM,
+		{0}
+	};
 
+	setup_page_tables(bl_regions, plat_qemu_get_mmap());
+
+	enable_mmu_svc_mon(0);
 }
 
 void sp_min_platform_setup(void)
@@ -138,7 +140,7 @@ void sp_min_platform_setup(void)
 
 unsigned int plat_get_syscnt_freq2(void)
 {
-	return SYS_COUNTER_FREQ_IN_TICKS;
+	return read_cntfrq_el0();
 }
 
 void sp_min_plat_fiq_handler(uint32_t id)

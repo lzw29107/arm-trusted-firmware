@@ -16,14 +16,7 @@ include plat/qemu/common/common.mk
 QEMU_USE_GIC_DRIVER	:= QEMU_GICV2
 
 ifeq (${ARM_ARCH_MAJOR},7)
-# ARMv7 Qemu support in trusted firmware expects the Cortex-A15 model.
-# Qemu Cortex-A15 model does not implement the virtualization extension.
-# For this reason, we cannot set ARM_CORTEX_A15=yes and must define all
-# the ARMv7 build directives.
-MARCH_DIRECTIVE 	:= 	-mcpu=cortex-a15
-$(eval $(call add_define,ARMV7_SUPPORTS_LARGE_PAGE_ADDRESSING))
-$(eval $(call add_define,ARMV7_SUPPORTS_GENERIC_TIMER))
-$(eval $(call add_define,ARMV7_SUPPORTS_VFP))
+ARM_CORTEX_A15		:=	yes
 # Qemu expects a BL32 boot stage.
 NEED_BL32		:=	yes
 endif # ARMv7
@@ -232,6 +225,8 @@ qemu_fw.rom: qemu_fw.bios
 	$(q)dd if=/dev/zero of=${BUILD_PLAT}/$@ bs=1M seek=64 count=0 status=none
 
 ifneq (${BL33},)
+all: qemu_fw.bios qemu_fw.rom
+else ifneq (${PRELOADED_BL33_BASE},)
 all: qemu_fw.bios qemu_fw.rom
 endif
 

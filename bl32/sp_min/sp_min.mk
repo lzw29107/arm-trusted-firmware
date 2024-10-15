@@ -67,7 +67,12 @@ endif
 # Include the platform-specific SP_MIN Makefile
 # If no platform-specific SP_MIN Makefile exists, it means SP_MIN is not supported
 # on this platform.
-SP_MIN_PLAT_MAKEFILE := $(wildcard ${PLAT_DIR}/sp_min/sp_min-${PLAT}.mk)
+ifeq (,$(wildcard ${PLAT_DIR}/../common/))
+  SP_MIN_PLAT_MAKEFILE := $(wildcard ${PLAT_DIR}/sp_min/sp_min-${PLAT}.mk)
+else
+  SP_MIN_PLAT_MAKEFILE := $(wildcard ${PLAT_DIR}/../common/sp_min/sp_min-${PLAT}.mk)
+endif
+
 ifeq (,${SP_MIN_PLAT_MAKEFILE})
   $(error SP_MIN is not supported on platform ${PLAT})
 else

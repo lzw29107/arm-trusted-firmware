@@ -507,5 +507,9 @@ int bl2_plat_handle_post_image_load(unsigned int image_id)
 
 uintptr_t plat_get_ns_image_entrypoint(void)
 {
+#ifdef PRELOADED_BL33_BASE
+	return PRELOADED_BL33_BASE;
+#else
 	return NS_IMAGE_OFFSET;
+#endif
 }

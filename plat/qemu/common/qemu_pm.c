@@ -147,7 +147,11 @@ void __dead2 plat_secondary_cold_boot_setup(void);
 static void __dead2
 qemu_pwr_domain_pwr_down_wfi(const psci_power_state_t *target_state)
 {
+#ifdef __aarch64__
 	disable_mmu_el3();
+#else
+	disable_mmu_secure();
+#endif
 	plat_secondary_cold_boot_setup();
 }
 

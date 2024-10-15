@@ -1,0 +1,50 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs: 
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { system: 24.04, platform: qemu, arch: AArch32, target: Release, cpu: cortex-a15 }
+          - { system: devel, platform: qemu, arch: AArch32, target: Release, cpu: cortex-a15 }
+          - { system: 24.04, platform: qemu, arch: AArch32, target: Debug, cpu: cortex-a15 }
+          - { system: devel, platform: qemu, arch: AArch32, target: Debug, cpu: cortex-a15 }
+    steps:
+    - name: 'Update system to devel'
+      if: ${{ matrix.system == 'devel' }}
+      run: |
+        sudo sed -i 's/noble/devel/g' /etc/apt/sources.list.d/ubuntu.sources
+
+    - name: 'Install software packages'
+      run: |
+        sudo apt update
+        sudo apt full-upgrade
+        sudo apt install gcc-arm-none-eabi gcc-aarch64-linux-gnu
+      
+    - uses: actions/checkout@main
+      with: 
+          submodules: 'true'
+          
+    - name: 'Build ${{ matrix.arch }}'
+      env:
+        debug: ${{ matrix.target == 'Debug' && '1' || '0' }}
+        major: ${{ matrix.cpu == 'cortex-a15' && '7' || '8' }}
+        cpu_flags: ${{ matrix.cpu == 'cortex-a15' && 'ERRATA_A15_816470=1 ERRATA_A15_827671=1' || '' }}
+        arch_flags: ${{ matrix.arch == 'AArch32' && 'CROSS_COMPILE=arm-none-eabi- ARCH=aarch32 AARCH32_SP=sp_min' || '' }}
+        plat_flags: ${{ matrix.platform == 'qemu' && 'PRELOADED_BL33_BASE=0x04000000' || '' }}
+      run: |
+        make PLAT=${{ matrix.platform }} ${{ env.plat_flags }} ARM_ARCH_MAJOR=${{ env.major }} ${{ env.arch_flags }} ${{ env.cpu_flags }} DEBUG=${{ env.debug }} all fip
+
+    - name: 'Upload artifact'
+      uses: actions/upload-artifact@main
+      with:
+        name: ${{ format('{0} {1} {2} (Ubuntu {3} Build)', matrix.platform, matrix.arch, matrix.target, matrix.system) }}
+        path:  ${{ github.workspace }}/build
+        compression-level: 9
